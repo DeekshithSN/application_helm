@@ -1,0 +1,6 @@
+ <Set name="KeyStorePath">{{ .Values.conf.application.server_ssl_key_store }}</Set>
+  <Set name="KeyStorePassword">{{ .Values.conf.application.server_ssl_key_store_password }}</Set>
+  <Set name="KeyStoreType"><Property name="jetty.sslContext.keyStoreType" default="JKS"/></Set>
+  <Set name="KeyStoreProvider"><Property name="jetty.sslContext.keyStoreProvider"/></Set>
+  <Set name="KeyManagerPassword">{{ .Values.conf.application.server_ssl_key_store_password }}</Set>
+  
