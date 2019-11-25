@@ -1,0 +1,9 @@
+apiVersion: v1
+description: my_application 
+name: my_application 
+version: 0.2.0
+home: link 
+sources:
+  - link 
+maintainers:
+  - name: Deekshith
