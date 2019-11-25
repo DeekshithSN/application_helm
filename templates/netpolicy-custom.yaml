@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: "{{ .Values.app.name }}-allow-all-netpol"
+  namespace: {{ .Values.app.namespace }}
+  {{- include "standard.labels" . | indent 2}}
+spec:
+  ingress:
+    - {}
+  egress:
+    - {}
+  podSelector:
+    matchLabels:
+      app: {{ .Values.app.name }}
+  policyTypes:
+    - Ingress
+    - Egress

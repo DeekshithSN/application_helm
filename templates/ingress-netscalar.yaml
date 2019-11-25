@@ -1,0 +1,13 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: "{{ .Values.app.name }}-ingress"
+  namespace: {{ .Values.app.namespace }}
+  {{- include "standard.labels" . | indent 2}}
+  annotations:
+    kubernetes.io/ingress.class: netscaler.v2
+    netscaler.applecloud.io/insecure-backend: "true"
+spec:
+  backend:
+    serviceName: "{{ .Values.app.name }}-svc"
+    servicePort: {{ .Values.conf.server_port }}

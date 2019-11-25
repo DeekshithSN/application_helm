@@ -1,0 +1,15 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Values.app.name }}-config-etc"
+  namespace: {{ .Values.app.namespace }}
+data:
+  start.ini: |
+{{ include (print .Template.BasePath "/conf/_test.tpl") . | indent 4 }}
+  jetty-ssl-context.xml: |
+{{ include (print .Template.BasePath "/conf/_test1.tpl") . | indent 4 }}
+  jetty.sh: |
+{{ include (print .Template.BasePath "/conf/_test2.tpl") . | indent 4 }}
+  console-capture.ini: | 
+{{ include (print .Template.BasePath "/conf/_test3.tpl") . | indent 4 }}

@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keystore
+type: Opaque
+stringData:
+  storepass: {{ .Values.conf.application.server_ssl_trust_store_password }}
+  keypass: {{ .Values.conf.application.server_ssl_key_store_password }}
+---  
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: "{{ .Values.app.name }}-deployment"
+  namespace: {{ .Values.app.namespace }}
+  {{- include "standard.labels" . | indent 2}}
+spec:
+  replicas: {{ .Values.app.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+    {{- include "standard.labels" . | indent 6}}
+    spec:
+      {{- if .Values.images.pullSecretNames }}
+      imagePullSecrets:
+      {{- range  .Values.images.pullSecretNames }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      
+      initContainers:
+        - image: "{{ .Values.images.tags.initImage }}"
+          name: "{{ .Values.app.initContainerName }}"
+          volumeMounts:
+          - name: certs
+            mountPath: /var/etc/test
+          env:
+          - name: "type"
+            value: "{{ .Values.certs.certType }}" # variable length (0-45 day) corporate server cert type
+          - name: "address"
+            value: "{{ .Values.certs.serverAddress }}" # certd uat address
+          - name: "metadata"
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: "keystore"
+            valueFrom:
+              secretKeyRef:
+                name: keystore
+                key: keypass
+          - name: "keystore"
+            valueFrom:
+              secretKeyRef:
+                name: keystore
+                key: storepass
+          - name: "NAME"
+            value: "my_app"
+          - name: "VERBOSE"
+            value: "1"
+          - name: "OUTPUT_PATH"
+            value: "/var/etc/test"
+          - name: "OUTPUT_CA"
+            value: "/var/etc/test/my_application/ca.crt"
+      
+      containers:
+        - name: "{{ .Values.app.name }}-container"
+          image: "{{ .Values.images.tags.appimage }}"
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          command: ["/bin/sh"]
+          args: ["-c", "cp -r /test/stage/*.sh /JETTY_HOME/distribution_version/bin/;chmod +x /JETTY_HOME/distribution_version/bin/jetty.sh start;while true; do echo hello; sleep 10;done"]
+          ports:
+            - name: "ws-port"
+              containerPort: {{ .Values.conf.server_port }}
+              protocol: TCP
+          # livenessProbe:
+          #   {{- with .Values.app.livenessProbe }}
+          #   exec:
+          #     command:
+          #       - {{ .command }}            
+          #   initialDelaySeconds: {{ .initialDelaySeconds }}
+          #   periodSeconds: {{ .periodSeconds }}
+          #   timeoutSeconds: {{ .timeoutSeconds }}
+          #   failureThreshold: {{ .failureThreshold }}
+          #   successThreshold: {{ .successThreshold }}
+          #   {{- end }}
+          # readinessProbe:
+          #   {{- $scheme := .Values.app.scheme -}}
+          #   {{- $app_port := .Values.conf.server_port -}}
+          #   {{- with .Values.app.readinessProbe }}
+          #   httpGet:
+          #     scheme: {{ $scheme }}
+          #     path: {{ .path }}
+          #     port: {{ $app_port }}
+          #   initialDelaySeconds: {{ .initialDelaySeconds }}
+          #   periodSeconds: {{ .periodSeconds }}
+          #   timeoutSeconds: {{ .timeoutSeconds }}
+          #   failureThreshold: {{ .failureThreshold }}
+          #   successThreshold: {{ .successThreshold }}
+          #   {{- end }}
+          resources:
+            limits:
+              cpu: {{ .Values.app.resources.limits.cpu }}
+              memory: {{ .Values.app.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.app.resources.requests.cpu }}
+              memory: {{ .Values.app.resources.requests.memory }}
+          volumeMounts:
+            - mountPath: /JETTY_HOME/distribution_version/test.ini
+              subPath: test
+              name: "{{ .Values.app.name }}-config-etc-volume"
+            - mountPath: /JETTY_HOME/distribution_version/test2
+              subPath: test2
+              name: "{{ .Values.app.name }}-config-etc-volume"
+            - mountPath: /JETTY_HOME/distribution_version/etc/test3
+              subPath: test3
+              name: "{{ .Values.app.name }}-config-etc-volume"
+            - mountPath: /my_apploication/stage/test4
+              subPath: test4
+              name: "{{ .Values.app.name }}-config-etc-volume"
+            - name: certs
+              mountPath: /var/etc
+            - name: "{{ .Values.app.name }}-logs"
+              mountPath: "/JETTY_HOME/distribution_version/logs"
+            - name: splunkforwarder-temp
+              mountPath: "/opt/splunk/var"
+            - name: podinfo
+              mountPath: "/etc/splunk/podinfo"
+              readOnly:  true 
+              
+        - name: "{{ .Values.app.splunkForwarderContainerName }}"
+          image: "{{ .Values.images.tags.splunk_image }}"
+          env:
+            - name:  SPLUNK_CLUSTER
+              value: "{{ .Values.splunk.cluster }}"
+            - name:  SPLUNK_LOG_MONITOR
+              value: "{{ .Values.splunk.log_monitor }}"
+          resources:
+            requests:
+              cpu: 400m
+              memory: 512Mi
+            limits:
+              cpu: 800m
+              memory: 1024Mi
+          volumeMounts:
+          - name: "{{ .Values.app.name }}-logs"
+            mountPath: "/JETTY_HOME/distribution_version/logs"
+          - name: splunkforwarder-temp
+            mountPath: "/opt/splunk/var"
+          - name: podinfo
+            mountPath: "/etc/splunk/podinfo"
+            readOnly: true 
+      volumes:
+        - name: "{{ .Values.app.name }}-config-etc-volume"
+          configMap:
+            name: "{{ .Values.app.name }}-config-etc"
+        - name: certs
+          emptyDir: {}
+        - name: "{{ .Values.app.name }}-logs"
+          emptyDir: {}
+        - name: "splunkforwarder-temp"
+          emptyDir: {}
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "labels"
+                fieldRef:
+                  fieldPath: metadata.labels
+              - path: "uid"
+                fieldRef:
+                  fieldPath: metadata.uid

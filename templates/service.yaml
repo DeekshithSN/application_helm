@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Values.app.name }}-svc"
+  namespace: {{ .Values.app.namespace }}
+  {{- include "standard.labels" . | indent 2}}
+  annotations:
+    netscaler.applecloud.io/service.class: "netscaler.v2"
+spec:
+  type: LoadBalancer
+  ports:
+    - port: {{ .Values.conf.server_port }}
+      targetPort: {{ .Values.conf.server_port }}
+      protocol: TCP
+  selector:
+    app: {{ .Values.app.name }}
+    release: {{ .Release.Name }}
