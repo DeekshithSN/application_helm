@@ -19,7 +19,7 @@ app:
     failureThreshold: 3
     successThreshold: 1
   readinessProbe:
-    path: "/deregister-imessage/healthCheck/node"
+    path: "/application/healthCheck/node"
     initialDelaySeconds: 10
     periodSeconds: 5
     timeoutSeconds: 5
